@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 void main() => runApp(MyApp());
 
 final dummySnapshot = [
-  {"name": "Filip", "votes": 15},
-  {"name": "Abraham", "votes": 14},
-  {"name": "Richard", "votes": 11},
-  {"name": "Ike", "votes": 10},
-  {"name": "Justin", "votes": 1},
+  {"title": "google.com", "url": "http://google.com"},
+  {"title": "apple.com", "url": "http://apple.com"},
+  {"title": "facebook.com", "url": "http://facebook.com"},
 ];
 
 class MyApp extends StatelessWidget {
@@ -32,7 +30,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Baby Name Votes')),
+      appBar: AppBar(title: Text('Baby Name url')),
       body: _buildBody(context),
     );
   }
@@ -53,7 +51,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final record = Record.fromMap(data);
 
     return Padding(
-        key: ValueKey(record.name),
+        key: ValueKey(record.title),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Container(
           decoration: BoxDecoration(
@@ -61,8 +59,8 @@ class _MyHomePageState extends State<MyHomePage> {
             borderRadius: BorderRadius.circular(5.0),
           ),
           child: ListTile(
-            title: Text(record.name),
-            trailing: Text(record.votes.toString()),
+            title: Text(record.title),
+            trailing: Text(record.url.toString()),
             // onTap: () =>
             //     Firestore.instance.runTransaction((transaction) async {
             //       final freshSnapshot =
@@ -70,7 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
             //       final fresh = Record.fromSnapshot(freshSnapshot);
 
             //       await transaction
-            //           .update(record.reference, {'votes': fresh.votes + 1});
+            //           .update(record.reference, {'url': fresh.url + 1});
             //     })
           ),
         ));
@@ -78,19 +76,20 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class Record {
-  final String name;
-  final int votes;
+  final String title;
+  final String url;
+
   //final DocumentReference reference;
 
   Record.fromMap(Map<String, dynamic> map) // ,{this.reference})
-      : assert(map['name'] != null),
-        assert(map['votes'] != null),
-        name = map['name'],
-        votes = map['votes'];
+      : assert(map['title'] != null),
+        assert(map['url'] != null),
+        title = map['title'],
+        url = map['url'];
 
   //Record.fromSnapshot(DocumentSnapshot snapshot)
   //    : this.fromMap(snapshot.data, reference: snapshot.reference);
 
   @override
-  String toString() => "Record<$name:$votes>";
+  String toString() => "Record<$title:$url>";
 }
