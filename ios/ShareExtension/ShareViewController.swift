@@ -30,6 +30,14 @@ class ShareViewController: SLComposeServiceViewController {
         let puclicURL = String(kUTTypeURL)  // "public.url"
 //        var ref: DocumentReference? = nil
 //
+        Auth.auth().signInAnonymously() { (authResult, error) in
+            let user = authResult?.user
+            let isAnonymous = user?.isAnonymous  // true
+            let uid = user?.uid
+            print("fireauth:user:",user)
+            print("fireauth:uid:",uid)
+        }
+        
         let db = Firestore.firestore()
         // shareExtension で NSURL を取得
         if itemProvider.hasItemConformingToTypeIdentifier(puclicURL) {

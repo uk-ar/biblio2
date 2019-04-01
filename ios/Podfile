@@ -63,6 +63,7 @@ end
 target 'ShareExtension' do
   pod 'Firebase/Core'
   pod 'Firebase/Firestore'
+  pod 'Firebase/Auth'
 end
 
 post_install do |installer|
