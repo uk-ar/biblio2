@@ -1,5 +1,6 @@
 //import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() => runApp(MyApp());
 
@@ -27,6 +28,23 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<FirebaseUser> _handleSignIn() async {
+    final FirebaseUser user = await _auth.signInAnonymously();
+    print("signed in " + user.uid);
+    return user;
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _handleSignIn()
+        .then((FirebaseUser user) => print(user))
+        .catchError((e) => print(e));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
