@@ -15,6 +15,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Baby Names',
+      //home: new LoginSignUpPage(auth: new Auth()),
       home: MyHomePage(),
     );
   }
@@ -31,6 +32,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<FirebaseUser> _handleSignIn() async {
+    //https://android.jlelse.eu/authenticate-with-firebase-anonymously-android-34fdf3c7336b
     final FirebaseUser user = await _auth.signInAnonymously();
     print("signed in " + user.uid);
     return user;
