@@ -33,7 +33,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<FirebaseUser> _handleSignIn() async {
     //https://android.jlelse.eu/authenticate-with-firebase-anonymously-android-34fdf3c7336b
-    final FirebaseUser user = await _auth.signInAnonymously();
+    FirebaseUser user = await _auth.currentUser();
+    if (user == null) {
+      user = await _auth.signInAnonymously();
+    }
     print("signed in " + user.uid);
     return user;
   }

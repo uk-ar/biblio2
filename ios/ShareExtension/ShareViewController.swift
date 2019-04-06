@@ -30,13 +30,25 @@ class ShareViewController: SLComposeServiceViewController {
         let puclicURL = String(kUTTypeURL)  // "public.url"
 //        var ref: DocumentReference? = nil
 //
-        Auth.auth().signInAnonymously() { (authResult, error) in
-            let user = authResult?.user
-            let isAnonymous = user?.isAnonymous  // true
-            let uid = user?.uid
+        print("fireauth:which")
+        var user = Auth.auth().currentUser
+        if (user == nil){
+            print("fireauth:no current")
+            Auth.auth().signInAnonymously() { (authResult, error) in
+                user = authResult?.user
+                let isAnonymous = user?.isAnonymous  // true
+                let uid = user?.uid
+                print("fireauth:user:",user)
+                print("fireauth:uid:",uid)
+                self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+            }
+        }else{
+            print("fireauth:current")
             print("fireauth:user:",user)
-            print("fireauth:uid:",uid)
+            print("fireauth:uid:",user?.uid)
+            self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
         }
+        
         
         let db = Firestore.firestore()
         // shareExtension で NSURL を取得
@@ -52,10 +64,10 @@ class ShareViewController: SLComposeServiceViewController {
                         "url": url.absoluteString ?? ""
                     ]) { err in
                         if let err = err {
-                            print("Error writing document: \(err)")
+                            print("fireauth:Error writing document: \(err)")
                         } else {
-                            print("Document successfully written!")
-                            self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+                            print("fireauth:Document successfully written!")
+                            //self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
                         }
                     }
                 }
