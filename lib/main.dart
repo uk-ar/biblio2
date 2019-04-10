@@ -1,14 +1,8 @@
-//import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void main() => runApp(MyApp());
-
-final dummySnapshot = [
-  {"title": "google.com", "url": "http://google.com"},
-  {"title": "apple.com", "url": "http://apple.com"},
-  {"title": "facebook.com", "url": "http://facebook.com"},
-];
 
 class MyApp extends StatelessWidget {
   @override
@@ -60,21 +54,27 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _buildBody(BuildContext context) {
     // TODO: get actual snapshot from Cloud Firestore
-    return _buildList(context, dummySnapshot);
+    return StreamBuilder<QuerySnapshot>(
+      stream: Firestore.instance.collection('baby').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return LinearProgressIndicator();
+
+        return _buildList(context, snapshot.data.documents);
+      },
+    );
   }
 
-  Widget _buildList(BuildContext context, List<Map> snapshot) {
+  Widget _buildList(BuildContext context, List<DocumentSnapshot> snapshot) {
     return ListView(
       padding: const EdgeInsets.only(top: 20.0),
       children: snapshot.map((data) => _buildListItem(context, data)).toList(),
     );
   }
 
-  Widget _buildListItem(BuildContext context, Map data) {
-    final record = Record.fromMap(data);
-
+  Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
+    final record = Record.fromSnapshot(data);
     return Padding(
-        key: ValueKey(record.title),
+        key: ValueKey(record.name),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Container(
           decoration: BoxDecoration(
@@ -82,37 +82,35 @@ class _MyHomePageState extends State<MyHomePage> {
             borderRadius: BorderRadius.circular(5.0),
           ),
           child: ListTile(
-            title: Text(record.title),
-            trailing: Text(record.url.toString()),
-            // onTap: () =>
-            //     Firestore.instance.runTransaction((transaction) async {
-            //       final freshSnapshot =
-            //           await transaction.get(record.reference);
-            //       final fresh = Record.fromSnapshot(freshSnapshot);
+              title: Text(record.name),
+              trailing: Text(record.votes.toString()),
+              onTap: () =>
+                  Firestore.instance.runTransaction((transaction) async {
+                    final freshSnapshot =
+                        await transaction.get(record.reference);
+                    final fresh = Record.fromSnapshot(freshSnapshot);
 
-            //       await transaction
-            //           .update(record.reference, {'url': fresh.url + 1});
-            //     })
-          ),
+                    await transaction
+                        .update(record.reference, {'votes': fresh.votes + 1});
+                  })),
         ));
   }
 }
 
 class Record {
-  final String title;
-  final String url;
+  final String name;
+  final int votes;
+  final DocumentReference reference;
 
-  //final DocumentReference reference;
+  Record.fromMap(Map<String, dynamic> map, {this.reference})
+      : assert(map['name'] != null),
+        assert(map['votes'] != null),
+        name = map['name'],
+        votes = map['votes'];
 
-  Record.fromMap(Map<String, dynamic> map) // ,{this.reference})
-      : assert(map['title'] != null),
-        assert(map['url'] != null),
-        title = map['title'],
-        url = map['url'];
-
-  //Record.fromSnapshot(DocumentSnapshot snapshot)
-  //    : this.fromMap(snapshot.data, reference: snapshot.reference);
+  Record.fromSnapshot(DocumentSnapshot snapshot)
+      : this.fromMap(snapshot.data, reference: snapshot.reference);
 
   @override
-  String toString() => "Record<$title:$url>";
+  String toString() => "Record<$name:$votes>";
 }
