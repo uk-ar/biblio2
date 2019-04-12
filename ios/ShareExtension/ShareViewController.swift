@@ -29,12 +29,11 @@ class ShareViewController: SLComposeServiceViewController {
             // [START_EXCLUDE]
             if (user == nil) {
                 print("fireauth:no current")
-                Auth.auth().signInAnonymously() { (authResult, error) in
+                Auth.auth()
+                    .signInAnonymously() { (authResult, error) in
                     if let user = authResult?.user {
-                        let isAnonymous = user.isAnonymous  // true
-                        let uid = user.uid
-                        self.db.collection("users").document(uid).setData([
-                            "isAnonymous": isAnonymous,
+                        self.db.collection("users").document(user.uid).setData([
+                            "isAnonymous": user.isAnonymous,
                             ])
                     }
                 }
@@ -60,10 +59,9 @@ class ShareViewController: SLComposeServiceViewController {
         // This is called after the user selects Post. Do the upload of contentText and/or NSExtensionContext attachments.
         // Use Firebase library to configure APIs
 
-
         let extensionItem: NSExtensionItem = self.extensionContext?.inputItems.first as! NSExtensionItem
         let itemProvider = extensionItem.attachments?.first as! NSItemProvider
-        
+
         let puclicURL = String(kUTTypeURL)  // "public.url"
 //        var ref: DocumentReference? = nil
 //
