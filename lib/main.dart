@@ -4,32 +4,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 void main() => runApp(MyApp());
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Baby urls',
-      //home: new LoginSignUpPage(auth: new Auth()),
-      home: MyHomePage(),
-    );
-  }
+  _MyAppState createState() => _MyAppState();
 }
 
-class MyHomePage extends StatefulWidget {
-  @override
-  _MyHomePageState createState() {
-    return _MyHomePageState();
-  }
-}
-
-class _MyHomePageState extends State<MyHomePage> {
+class _MyAppState extends State<MyApp> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
+  Stream userStream;
   Future<FirebaseUser> _handleSignIn() async {
     //https://android.jlelse.eu/authenticate-with-firebase-anonymously-android-34fdf3c7336b
-    FirebaseUser user = await _auth.currentUser();
+    var user = await _auth.currentUser();
     if (user == null) {
       user = await _auth.signInAnonymously();
+      await Firestore.instance.collection("users").document(user.uid).setData({
+        "isAnonymous": user.isAnonymous,
+      });
     }
     print("signed in " + user.uid);
     return user;
@@ -39,11 +29,62 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    _handleSignIn()
-        .then((FirebaseUser user) => print(user))
-        .catchError((e) => print(e));
+    userStream = _handleSignIn().asStream();
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Baby urls',
+      //home: new LoginSignUpPage(auth: new Auth()),
+      home: _handleScreen(),
+    );
+  }
+
+  Widget SplashScreen() {
+    return new Scaffold(
+      body: new Center(
+        child: new Image.asset('assets/flutter-icon.png'),
+      ),
+    );
+  }
+
+  Widget _handleScreen() {
+    //https://flutterdoc.com/mobileauthenticating-users-with-firebase-and-flutter-240c5557ac7f
+    return new StreamBuilder<FirebaseUser>(
+        stream: userStream,
+        builder: (BuildContext context, user) {
+          if (user.hasData) {
+            return StreamBuilder<QuerySnapshot>(
+              stream: Firestore.instance
+                  .collection('posts')
+                  .where("author",
+                      isEqualTo: Firestore.instance
+                          .collection("users")
+                          .document(user.data.uid))
+                  .snapshots(),
+              //stream: Firestore.instance.collection(name).snapshots(),
+              builder: (BuildContext context,
+                  AsyncSnapshot<QuerySnapshot> snapshot) {
+                return new MyHomePage(firestore: snapshot);
+                //return new ListView(children: createChildren(snapshot));
+              },
+            );
+            //return new MyHomePage(firestore: firestore);
+          }
+          return SplashScreen();
+          //LinearProgressIndicator
+          //return new LoginScreen();
+        });
+  }
+}
+
+class MyHomePage extends StatelessWidget {
+  MyHomePage({
+    Key key,
+    this.firestore,
+  }) : super(key: key);
+  final AsyncSnapshot firestore;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,14 +95,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _buildBody(BuildContext context) {
     // TODO: get actual snapshot from Cloud Firestore
-    return StreamBuilder<QuerySnapshot>(
-      stream: Firestore.instance.collection('posts').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return LinearProgressIndicator();
-
-        return _buildList(context, snapshot.data.documents);
-      },
-    );
+    if (firestore.hasData) {
+      return _buildList(context, firestore.data.documents);
+    }
+    return _buildList(context, []);
   }
 
   Widget _buildList(BuildContext context, List<DocumentSnapshot> snapshot) {
