@@ -25,18 +25,19 @@ class ShareViewController: SLComposeServiceViewController {
         // [START auth_listener]
         handle = Auth.auth().addStateDidChangeListener { (auth, user) in
             // [START_EXCLUDE]
-            if (user == nil) {
-                print("fireauth:no current")
-                Auth.auth()
-                    .signInAnonymously() { (authResult, error) in
-                    if let user = authResult?.user {
-                        Firestore.firestore().collection("users").document(user.uid).setData([
-                            "isAnonymous": user.isAnonymous,
-                            ])
+            if (user != nil){
+                print("fireauth:current")
+                return
+            }
+            print("fireauth:no current")
+            Auth.auth()
+                .signInAnonymously(){(authResult, error) in
+                    guard let user = authResult?.user else{
+                        return
                     }
-                }
-            }else{
-                 print("fireauth:current")
+                    Firestore.firestore().collection("users").document(user.uid).setData([
+                        "isAnonymous": user.isAnonymous,
+                        ])
             }
             // [END_EXCLUDE]
         }
@@ -65,33 +66,38 @@ class ShareViewController: SLComposeServiceViewController {
 //
         let user = Auth.auth().currentUser
         guard let uid = user?.uid else{
+            self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
             return
         }
         print("fireauth:user:",user)
         print("fireauth:uid:",uid)
         // shareExtension で NSURL を取得
-        if itemProvider.hasItemConformingToTypeIdentifier(puclicURL) {
-            itemProvider.loadItem(forTypeIdentifier: puclicURL, options: nil, completionHandler: { (item, error) in
-                // NSURLを取得する
-                if let url: NSURL = item as? NSURL {
-                    // ----------
-                    // 保存処理
-                    // ----------
-                    let db = Firestore.firestore()
-                    db.collection("posts").addDocument(data: [
-                        "author": db.collection("users").document(uid),
-                        "url": url.absoluteString ?? ""
-                        ]){ err in
-                        if let err = err {
-                            print("fireauth:Error writing document: \(err)")
-                        } else {
-                            print("fireauth:Document successfully written!")
-                            self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
-                        }
-                    }
-                }
-            })
+        if !itemProvider.hasItemConformingToTypeIdentifier(puclicURL){
+            self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+            return
         }
+        itemProvider.loadItem(forTypeIdentifier: puclicURL, options: nil, completionHandler: { (item, error) in
+            // NSURLを取得する
+            guard let url: NSURL = item as? NSURL else{
+                self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+                return
+            }
+            // ----------
+            // 保存処理
+            // ----------
+            let db = Firestore.firestore()
+            db.collection("posts").addDocument(data: [
+                "author": db.collection("users").document(uid),
+                "url": url.absoluteString ?? ""
+                ]){ err in
+                if let err = err {
+                    print("fireauth:Error writing document: \(err)")
+                } else {
+                    print("fireauth:Document successfully written!")
+                    self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+                }
+            }
+        })
         // Inform the host that we're done, so it un-blocks its UI. Note: Alternatively you could call super's -didSelectPost, which will similarly complete the extension context.
         //self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
     }
