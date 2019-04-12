@@ -16,13 +16,11 @@ class ShareViewController: SLComposeServiceViewController {
      @brief The handler for the auth state listener, to allow cancelling later.
      */
     //https://github.com/firebase/snippets-ios/blob/7af7f641151501af427fc4ef7c421b0ba357ce27/firestore/swift/firestore-smoketest/ViewController.swift#L140-L152
-    var db: Firestore!
     var handle: AuthStateDidChangeListenerHandle?
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
-            db = Firestore.firestore()
         }
         // [START auth_listener]
         handle = Auth.auth().addStateDidChangeListener { (auth, user) in
@@ -32,7 +30,7 @@ class ShareViewController: SLComposeServiceViewController {
                 Auth.auth()
                     .signInAnonymously() { (authResult, error) in
                     if let user = authResult?.user {
-                        self.db.collection("users").document(user.uid).setData([
+                        Firestore.firestore().collection("users").document(user.uid).setData([
                             "isAnonymous": user.isAnonymous,
                             ])
                     }
@@ -71,7 +69,6 @@ class ShareViewController: SLComposeServiceViewController {
         }
         print("fireauth:user:",user)
         print("fireauth:uid:",uid)
-        let userRef: DocumentReference? = db.collection("users").document(uid)
         // shareExtension で NSURL を取得
         if itemProvider.hasItemConformingToTypeIdentifier(puclicURL) {
             itemProvider.loadItem(forTypeIdentifier: puclicURL, options: nil, completionHandler: { (item, error) in
@@ -80,8 +77,9 @@ class ShareViewController: SLComposeServiceViewController {
                     // ----------
                     // 保存処理
                     // ----------
-                    self.db.collection("posts").addDocument(data: [
-                        "author": userRef,
+                    let db = Firestore.firestore()
+                    db.collection("posts").addDocument(data: [
+                        "author": db.collection("users").document(uid),
                         "url": url.absoluteString ?? ""
                         ]){ err in
                         if let err = err {
