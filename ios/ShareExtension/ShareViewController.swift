@@ -72,15 +72,6 @@ class ShareViewController: SLComposeServiceViewController {
         textView.textColor = UIColor(white: 0.5, alpha: 1)
         textView.tintColor = UIColor.clear // TODO hack to disable cursor
         textView.text = "foo"
-        /*/getUrl { (url: URL?) in
-            if let url = url {
-                DispatchQueue.main.async {
-                    // TODO this is also hacky
-                    self.textView.text = "\(url)"
-                    print("url:",url)
-                }
-            }
-        }*/
         let extensionItem = extensionContext?.inputItems.first as! NSExtensionItem
         let itemProvider = extensionItem.attachments?.first as! NSItemProvider
         let propertyList = String(kUTTypePropertyList)
@@ -90,12 +81,16 @@ class ShareViewController: SLComposeServiceViewController {
                 OperationQueue.main.addOperation {
                     if let results = dictionary[NSExtensionJavaScriptPreprocessingResultsKey] as? NSDictionary,
                         let urlString = results["URL"] as? String,
-                        //let isbn = results["isbn"] as? String,
+                        let isbn = results["isbn"],
                         let url = NSURL(string: urlString) {
-                            print("URL retrieved: \(urlString)")
+                        if (isbn == nil){
+                            self.textView.text = "このページには対応していません"
+                        }else{
+                            print("URL retrieved: \(urlString),\(isbn)")
                             self.textView.text = "bar"
                             print("url:",urlString)
                         }
+                    }
                 }
             })
         } else {

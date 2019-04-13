@@ -2,9 +2,18 @@
 var GetURL = function() {};
 GetURL.prototype = {
 run: function(arguments) {
-    //var results = document.body.innerText.match( new RegExp('[978|979]\\d{9}[\\d|X]') );
-    //arguments.completionFunction({"URL": document.URL, "isbn": results ? results[0] : null});
-    arguments.completionFunction({"URL": document.URL });
+
+    var amazonReg = new RegExp('^https?:\/\/(www.)?amazon');
+    var results;
+    console.log("called:");
+    if (amazonReg.test(document.URL)){
+        results = document.URL.match( new RegExp('\\d{9}[\\d|X]'))
+    }else{
+        results = document.body.innerText.match( new RegExp('[978|979]\\d{9}[\\d|X]') );
+    }
+    console.log("js:",results);
+    arguments.completionFunction({"URL": document.URL, "isbn": results ? results[0] : null});
+    //arguments.completionFunction({"URL": document.URL });
 }
 };
 var ExtensionPreprocessingJS = new GetURL;
