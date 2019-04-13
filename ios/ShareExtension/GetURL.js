@@ -12,7 +12,11 @@ run: function(arguments) {
         results = document.body.innerText.match( new RegExp('[978|979]\\d{9}[\\d|X]') );
     }
     console.log("js:",results);
-    arguments.completionFunction({"URL": document.URL, "isbn": results ? results[0] : null});
+    if (results){
+        arguments.completionFunction({"URL": document.URL, "isbn": results[0]});
+    }else{
+        arguments.completionFunction({"URL": document.URL});
+    }    
     //arguments.completionFunction({"URL": document.URL });
 }
 };
