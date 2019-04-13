@@ -17,6 +17,7 @@ class ShareViewController: SLComposeServiceViewController {
      */
     var handle: AuthStateDidChangeListenerHandle?
     var isbn: String?
+    var url: String?
     override func viewDidLoad() {
         //https://stackoverflow.com/questions/46606221/share-extension-remove-textfield
         super.viewDidLoad()
@@ -31,9 +32,8 @@ class ShareViewController: SLComposeServiceViewController {
             itemProvider.loadItem(forTypeIdentifier: propertyList, options: nil, completionHandler: { (item, error) -> Void in
                 guard let dictionary = item as? NSDictionary else { return }
                 OperationQueue.main.addOperation {
-                    if let results = dictionary[NSExtensionJavaScriptPreprocessingResultsKey] as? NSDictionary,
-                        let urlString = results["URL"] as? String,
-                        let url = NSURL(string: urlString) {
+                    if let results = dictionary[NSExtensionJavaScriptPreprocessingResultsKey] as? NSDictionary{
+                        self.url = results["URL"] as? String
                         self.isbn = results["isbn"] as? String
                         if let isbn = self.isbn {
                             self.textView.text = "ISBN: \(isbn)"
@@ -102,7 +102,8 @@ class ShareViewController: SLComposeServiceViewController {
         let db = Firestore.firestore()
         db.collection("posts").addDocument(data: [
             "author": db.collection("users").document(uid),
-            "isbn": isbn ?? ""
+            "isbn": isbn ?? "",
+            "url": url ?? ""
             ]){ err in
             if let err = err {
                 print("fireauth:Error writing document: \(err)")
