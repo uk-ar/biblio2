@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart';
 
 void main() => runApp(MyApp());
 
@@ -35,7 +36,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Baby urls',
+      title: 'Baby isbns',
       //home: new LoginSignUpPage(auth: new Auth()),
       home: _handleScreen(),
     );
@@ -88,7 +89,7 @@ class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Baby url url')),
+      appBar: AppBar(title: Text('Baby isbn isbn')),
       body: _buildBody(context),
     );
   }
@@ -111,7 +112,7 @@ class MyHomePage extends StatelessWidget {
   Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
     final record = Record.fromSnapshot(data);
     return Padding(
-        key: ValueKey(record.url),
+        key: ValueKey(record.isbn),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Container(
           decoration: BoxDecoration(
@@ -119,7 +120,7 @@ class MyHomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(5.0),
           ),
           child: ListTile(
-              title: Text(record.url),
+              title: Text(record.isbn),
               //trailing: Text(record.votes.toString()),
               onTap: () =>
                   Firestore.instance.runTransaction((transaction) async {
@@ -135,16 +136,16 @@ class MyHomePage extends StatelessWidget {
 }
 
 class Record {
-  final String url;
+  final String isbn;
   final DocumentReference reference;
 
   Record.fromMap(Map<String, dynamic> map, {this.reference})
-      : assert(map['url'] != null),
-        url = map['url'];
+      : assert(map['isbn'] != null),
+        isbn = map['isbn'];
 
   Record.fromSnapshot(DocumentSnapshot snapshot)
       : this.fromMap(snapshot.data, reference: snapshot.reference);
 
   @override
-  String toString() => "Record<$url:>";
+  String toString() => "Record<$isbn:>";
 }
