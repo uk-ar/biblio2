@@ -53,7 +53,55 @@ class ShareViewController: SLComposeServiceViewController {
         // Do validation of contentText and/or NSExtensionContext attachments here
         return true
     }
-
+    func getUrl(callback: @escaping ((URL?) -> ())) {
+        if let item = extensionContext?.inputItems.first as? NSExtensionItem,
+            let itemProvider = item.attachments?.first as? NSItemProvider,
+            itemProvider.hasItemConformingToTypeIdentifier("public.url") {
+            itemProvider.loadItem(forTypeIdentifier: "public.url", options: nil) { (url, error) in
+                if let shareURL = url as? URL {
+                    callback(shareURL)
+                }
+            }
+        }
+        callback(nil)
+    }
+    override func viewDidLoad() {
+        //https://stackoverflow.com/questions/46606221/share-extension-remove-textfield
+        super.viewDidLoad()
+        textView.isUserInteractionEnabled = false
+        textView.textColor = UIColor(white: 0.5, alpha: 1)
+        textView.tintColor = UIColor.clear // TODO hack to disable cursor
+        textView.text = "foo"
+        /*/getUrl { (url: URL?) in
+            if let url = url {
+                DispatchQueue.main.async {
+                    // TODO this is also hacky
+                    self.textView.text = "\(url)"
+                    print("url:",url)
+                }
+            }
+        }*/
+        let extensionItem = extensionContext?.inputItems.first as! NSExtensionItem
+        let itemProvider = extensionItem.attachments?.first as! NSItemProvider
+        let propertyList = String(kUTTypePropertyList)
+        if itemProvider.hasItemConformingToTypeIdentifier(propertyList) {
+            itemProvider.loadItem(forTypeIdentifier: propertyList, options: nil, completionHandler: { (item, error) -> Void in
+                guard let dictionary = item as? NSDictionary else { return }
+                OperationQueue.main.addOperation {
+                    if let results = dictionary[NSExtensionJavaScriptPreprocessingResultsKey] as? NSDictionary,
+                        let urlString = results["URL"] as? String,
+                        //let isbn = results["isbn"] as? String,
+                        let url = NSURL(string: urlString) {
+                            print("URL retrieved: \(urlString)")
+                            self.textView.text = "bar"
+                            print("url:",urlString)
+                        }
+                }
+            })
+        } else {
+            print("error")
+        }
+    }
     override func didSelectPost() {
         // This is called after the user selects Post. Do the upload of contentText and/or NSExtensionContext attachments.
         // Use Firebase library to configure APIs
@@ -82,6 +130,17 @@ class ShareViewController: SLComposeServiceViewController {
                 self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
                 return
             }
+            guard let regex = try? NSRegularExpression(pattern: "/\\d{9}[\\d|X]") else { self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+                return
+            }
+            let uri = url.absoluteString!
+            let results = regex.matches(in: uri, options: [], range:
+                NSRange(uri.startIndex..<uri.endIndex,
+                        in: uri))
+            print("uri:",uri,results)
+            for i in 0 ..< results.count {
+                print("match:",results[i])
+            }
             // ----------
             // 保存処理
             // ----------
@@ -103,8 +162,6 @@ class ShareViewController: SLComposeServiceViewController {
     }
 
     override func configurationItems() -> [Any]! {
-        // To add configuration options via table cells at the bottom of the sheet, return an array of SLComposeSheetConfigurationItem here.
-        return []
+        return nil
     }
-
 }

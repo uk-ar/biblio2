@@ -13,6 +13,7 @@
 		3B80C3951E831B6300D905FE /* App.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3B80C3931E831B6300D905FE /* App.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		4F542EFC225E9BBF002CBDE9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4F542EFB225E9BBE002CBDE9 /* GoogleService-Info.plist */; };
 		4F542EFE225E9BCB002CBDE9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4F542EFD225E9BCB002CBDE9 /* GoogleService-Info.plist */; };
+		4F542F2A2261A602002CBDE9 /* GetURL.js in Resources */ = {isa = PBXBuildFile; fileRef = 4F542F292261A602002CBDE9 /* GetURL.js */; };
 		4FB39B07224EFC28007E379E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB39B06224EFC28007E379E /* ShareViewController.swift */; };
 		4FB39B0A224EFC28007E379E /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4FB39B08224EFC28007E379E /* MainInterface.storyboard */; };
 		4FB39B0E224EFC28007E379E /* ShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 4FB39B04224EFC28007E379E /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -75,6 +76,7 @@
 		3B80C3931E831B6300D905FE /* App.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = App.framework; path = Flutter/App.framework; sourceTree = "<group>"; };
 		4F542EFB225E9BBE002CBDE9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		4F542EFD225E9BCB002CBDE9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		4F542F292261A602002CBDE9 /* GetURL.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = GetURL.js; sourceTree = "<group>"; };
 		4F5FD6CF2252AB76000962BC /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		4F5FD6D02252ABCA000962BC /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		4FB39B04224EFC28007E379E /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -129,6 +131,7 @@
 				4FB39B06224EFC28007E379E /* ShareViewController.swift */,
 				4FB39B08224EFC28007E379E /* MainInterface.storyboard */,
 				4FB39B0B224EFC28007E379E /* Info.plist */,
+				4F542F292261A602002CBDE9 /* GetURL.js */,
 			);
 			path = ShareExtension;
 			sourceTree = "<group>";
@@ -269,7 +272,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Original;
-				LastSwiftUpdateCheck = 1010;
+				LastSwiftUpdateCheck = 1020;
 				LastUpgradeCheck = 0910;
 				ORGANIZATIONNAME = "The Chromium Authors";
 				TargetAttributes = {
@@ -327,6 +330,7 @@
 			files = (
 				4FB39B0A224EFC28007E379E /* MainInterface.storyboard in Resources */,
 				4F542EFE225E9BCB002CBDE9 /* GoogleService-Info.plist in Resources */,
+				4F542F2A2261A602002CBDE9 /* GetURL.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
