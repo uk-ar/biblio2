@@ -9,7 +9,7 @@ run: function(arguments) {
     if (amazonReg.test(document.URL)){
         results = document.URL.match( new RegExp('\\d{9}[\\d|X]'))
     }else{
-        results = document.body.innerText.match( new RegExp('[978|979]\\d{9}[\\d|X]') );
+        results = document.body.innerText.match( new RegExp('(?:97[89])?\\d{9}[\\d|X]') );
     }
     console.log("js:",results);
     if (results){
