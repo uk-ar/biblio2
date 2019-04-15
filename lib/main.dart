@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart';
+import 'package:http/http.dart' as http;
 
 void main() => runApp(MyApp());
 
@@ -12,7 +15,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  Stream userStream;
+
   Future<FirebaseUser> _handleSignIn() async {
     //https://android.jlelse.eu/authenticate-with-firebase-anonymously-android-34fdf3c7336b
     var user = await _auth.currentUser();
@@ -24,13 +27,6 @@ class _MyAppState extends State<MyApp> {
     }
     print("signed in " + user.uid);
     return user;
-  }
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-    userStream = _handleSignIn().asStream();
   }
 
   @override
@@ -50,20 +46,55 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  Future<List<Book>> fetchPost(List<Record> records) async {
+    final isbns = records.map((record) => record.isbn).join(",");
+    final response =
+        await http.get('https://api.openbd.jp/v1/get?isbn=\(isbns)');
+    if (response.statusCode == 200) {
+      // If server returns an OK response, parse the JSON
+      var books = json.decode(response.body);
+      return books.map((book) => Book.fromJson(book));
+    } else {
+      // If that response was not OK, throw an error.
+      throw Exception('Failed to load post');
+    }
+  }
+
+  Stream<List<Record>> _handleBookList(user) async* {
+    var recordsStream = Firestore.instance
+        .collection('posts')
+        .where("author",
+            isEqualTo:
+                Firestore.instance.collection("users").document(user.data.uid))
+        .snapshots()
+        .map((data) =>
+            data.documents.map((snapshot) => Record.fromSnapshot(snapshot)));
+    //.map((records)=>fetchPost(records));
+    await for (var records in recordsStream) {
+      //sum += recor;
+      var books;
+      books = await fetchPost(records);
+      yield books;
+    }
+  }
+
+  Stream<QuerySnapshot> _handleSnapshot(user) {
+    return Firestore.instance
+        .collection('posts')
+        .where("author",
+            isEqualTo:
+                Firestore.instance.collection("users").document(user.data.uid))
+        .snapshots(); //.data.documents
+  }
+
   Widget _handleScreen() {
     //https://flutterdoc.com/mobileauthenticating-users-with-firebase-and-flutter-240c5557ac7f
-    return new StreamBuilder<FirebaseUser>(
-        stream: userStream,
+    return new FutureBuilder<FirebaseUser>(
+        future: _handleSignIn(),
         builder: (BuildContext context, user) {
           if (user.hasData) {
             return StreamBuilder<QuerySnapshot>(
-              stream: Firestore.instance
-                  .collection('posts')
-                  .where("author",
-                      isEqualTo: Firestore.instance
-                          .collection("users")
-                          .document(user.data.uid))
-                  .snapshots(),
+              stream: _handleSnapshot(user),
               //stream: Firestore.instance.collection(name).snapshots(),
               builder: (BuildContext context,
                   AsyncSnapshot<QuerySnapshot> snapshot) {
@@ -111,6 +142,7 @@ class MyHomePage extends StatelessWidget {
 
   Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
     final record = Record.fromSnapshot(data);
+    //fetchPost();
     return Padding(
         key: ValueKey(record.isbn),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -132,6 +164,21 @@ class MyHomePage extends StatelessWidget {
                     //    .update(record.reference, {'votes': fresh.votes + 1});
                   })),
         ));
+  }
+}
+
+class Book {
+  final String title;
+
+  Book({this.title});
+
+  factory Book.fromJson(Map<String, dynamic> json) {
+    return Book(
+      title: json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
+          ["TitleText"]["content"],
+      //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
+      //books.map((book) => Book.fromJson(book));
+    );
   }
 }
 
