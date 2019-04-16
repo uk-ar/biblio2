@@ -46,39 +46,49 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  Future<List<Book>> fetchPost(List<Record> records) async {
+  Future<Iterable<Map<dynamic, dynamic>>> fetchPost(
+      Iterable<Record> records) async {
+    print(records);
     final isbns = records.map((record) => record.isbn).join(",");
-    final response =
-        await http.get('https://api.openbd.jp/v1/get?isbn=\(isbns)');
+    print('https://api.openbd.jp/v1/get?isbn=$isbns');
+    final response = await http.get('https://api.openbd.jp/v1/get?isbn=$isbns');
+    //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
       var books = json.decode(response.body);
-      return books.map((book) => Book.fromJson(book));
+      print(books.map((book) => Book.fromJson(book)));
+      books.map((book) => Book.fromJson(book));
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
     }
   }
 
-  Stream<List<Record>> _handleBookList(user) async* {
+  Stream<List<Record>> _handleBookList(user) {
+    print("handlebooklist");
     var recordsStream = Firestore.instance
         .collection('posts')
         .where("author",
             isEqualTo:
                 Firestore.instance.collection("users").document(user.data.uid))
         .snapshots()
-        .map((data) =>
-            data.documents.map((snapshot) => Record.fromSnapshot(snapshot)));
+        .map((data) => data.documents) //records
+        .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
+        .asyncExpand((records) => fetchPost(records).asStream())
+        .listen((data) => print(data));
+    //.map((data) =>
+    //    data.documents.map((snapshot) => Record.fromSnapshot(snapshot)));
     //.map((records)=>fetchPost(records));
-    await for (var records in recordsStream) {
+    /*await for (var records in recordsStream) {
       //sum += recor;
       var books;
       books = await fetchPost(records);
       yield books;
-    }
+    }*/
   }
 
   Stream<QuerySnapshot> _handleSnapshot(user) {
+    _handleBookList(user);
     return Firestore.instance
         .collection('posts')
         .where("author",
@@ -136,12 +146,15 @@ class MyHomePage extends StatelessWidget {
   Widget _buildList(BuildContext context, List<DocumentSnapshot> snapshot) {
     return ListView(
       padding: const EdgeInsets.only(top: 20.0),
-      children: snapshot.map((data) => _buildListItem(context, data)).toList(),
+      children: snapshot
+          .map((data) => Record.fromSnapshot(data))
+          .map((record) => _buildListItem(context, record))
+          .toList(),
     );
   }
 
-  Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
-    final record = Record.fromSnapshot(data);
+  Widget _buildListItem(BuildContext context, Record record) {
+    //final record = Record.fromSnapshot(data);
     //fetchPost();
     return Padding(
         key: ValueKey(record.isbn),
@@ -180,6 +193,8 @@ class Book {
       //books.map((book) => Book.fromJson(book));
     );
   }
+  @override
+  String toString() => "Book<$title:>";
 }
 
 class Record {
