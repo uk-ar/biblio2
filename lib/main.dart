@@ -55,12 +55,17 @@ class _MyAppState extends State<MyApp> {
     //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
-      //List<Book> =
+      // List<Book> books = json
+      //     .decode(response.body)
+      //     .map((book) => Book.fromJson(book) as Book)
+      //     .toList();
+      //var books =  as List;
       var books = json.decode(response.body) as List;
       print("fetched");
       print(books);
-      print(books.map((book) => new Book.fromJson(book)).toList());
-      return books.map((book) => Book.fromJson(book) as Book).toList();
+      //print(books.map((book) => new Book.fromJson(book)).toList());
+      return books.map((book) => Book.fromJson(book)).toList();
+      //return books;
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
@@ -204,8 +209,14 @@ class Book {
   Book.fromJson(Map<String, dynamic> json)
       : title = json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
             ["TitleText"]["content"];
+
   //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
   //books.map((book) => Book.fromJson(book))
+  // factory Book.fromJson(Map<String, dynamic> json) {
+  //   return Book(
+  //       title: json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
+  //           ["TitleText"]["content"]);
+  // }
   @override
   String toString() => "Book<$title:>";
 }
