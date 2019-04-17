@@ -46,8 +46,7 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  Future<Iterable<Map<dynamic, dynamic>>> fetchPost(
-      Iterable<Record> records) async {
+  Future<List<Book>> fetchPost(Iterable<Record> records) async {
     print(records);
     final isbns = records.map((record) => record.isbn).join(",");
     print('https://api.openbd.jp/v1/get?isbn=$isbns');
@@ -55,16 +54,16 @@ class _MyAppState extends State<MyApp> {
     //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
-      var books = json.decode(response.body);
-      print(books.map((book) => Book.fromJson(book)));
-      books.map((book) => Book.fromJson(book));
+      var books = json.decode(response.body) as List;
+      //print(books.map((book) => new Book.fromJson(book)).toList());
+      return books.map((book) => Book.fromJson(book)).toList();
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
     }
   }
 
-  Stream<List<Record>> _handleBookList(user) {
+  Stream<List<Book>> _handleBookList(user) {
     print("handlebooklist");
     var recordsStream = Firestore.instance
         .collection('posts')
@@ -74,8 +73,9 @@ class _MyAppState extends State<MyApp> {
         .snapshots()
         .map((data) => data.documents) //records
         .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
-        .asyncExpand((records) => fetchPost(records).asStream())
-        .listen((data) => print(data));
+        .asyncExpand((records) => fetchPost(records).asStream());
+    //.listen((data) => print(data));
+    return recordsStream;
     //.map((data) =>
     //    data.documents.map((snapshot) => Record.fromSnapshot(snapshot)));
     //.map((records)=>fetchPost(records));
@@ -108,7 +108,14 @@ class _MyAppState extends State<MyApp> {
               //stream: Firestore.instance.collection(name).snapshots(),
               builder: (BuildContext context,
                   AsyncSnapshot<QuerySnapshot> snapshot) {
-                return new MyHomePage(firestore: snapshot);
+                if (snapshot.hasData) {
+                  return new MyHomePage(
+                      firestore: snapshot.data.documents
+                          .map((data) => Record.fromSnapshot(data))
+                          .toList());
+                } else {
+                  return new MyHomePage(firestore: []);
+                }
                 //return new ListView(children: createChildren(snapshot));
               },
             );
@@ -126,7 +133,7 @@ class MyHomePage extends StatelessWidget {
     Key key,
     this.firestore,
   }) : super(key: key);
-  final AsyncSnapshot firestore;
+  final List<Record> firestore;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,17 +144,14 @@ class MyHomePage extends StatelessWidget {
 
   Widget _buildBody(BuildContext context) {
     // TODO: get actual snapshot from Cloud Firestore
-    if (firestore.hasData) {
-      return _buildList(context, firestore.data.documents);
-    }
-    return _buildList(context, []);
+    return _buildList(context, firestore);
   }
 
-  Widget _buildList(BuildContext context, List<DocumentSnapshot> snapshot) {
+  Widget _buildList(BuildContext context, List<Record> snapshot) {
     return ListView(
       padding: const EdgeInsets.only(top: 20.0),
       children: snapshot
-          .map((data) => Record.fromSnapshot(data))
+          //.map((data) => Record.fromSnapshot(data))
           .map((record) => _buildListItem(context, record))
           .toList(),
     );
