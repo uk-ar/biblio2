@@ -32,7 +32,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Baby isbns',
+      title: 'Baby titles',
       //home: new LoginSignUpPage(auth: new Auth()),
       home: _handleScreen(),
     );
@@ -47,16 +47,20 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<List<Book>> fetchPost(Iterable<Record> records) async {
+    print("fetchPost");
     print(records);
     final isbns = records.map((record) => record.isbn).join(",");
-    print('https://api.openbd.jp/v1/get?isbn=$isbns');
+    print('https://api.openbd.jp/v1/get?title=$isbns');
     final response = await http.get('https://api.openbd.jp/v1/get?isbn=$isbns');
     //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
+      //List<Book> =
       var books = json.decode(response.body) as List;
-      //print(books.map((book) => new Book.fromJson(book)).toList());
-      return books.map((book) => Book.fromJson(book)).toList();
+      print("fetched");
+      print(books);
+      print(books.map((book) => new Book.fromJson(book)).toList());
+      return books.map((book) => Book.fromJson(book) as Book).toList();
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
@@ -65,37 +69,46 @@ class _MyAppState extends State<MyApp> {
 
   Stream<List<Book>> _handleBookList(user) {
     print("handlebooklist");
-    var recordsStream = Firestore.instance
+    var booksStream = Firestore.instance
         .collection('posts')
         .where("author",
             isEqualTo:
                 Firestore.instance.collection("users").document(user.data.uid))
         .snapshots()
-        .map((data) => data.documents) //records
+        .map((data) => data.documents) //books
+        .map((snapshot) {
+          print("foo");
+          print(snapshot);
+          return snapshot;
+        })
         .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
-        .asyncExpand((records) => fetchPost(records).asStream());
+        .map((snapshot) {
+          print(snapshot);
+          return snapshot;
+        })
+        .asyncExpand((books) => fetchPost(books).asStream());
     //.listen((data) => print(data));
-    return recordsStream;
+    return booksStream;
     //.map((data) =>
-    //    data.documents.map((snapshot) => Record.fromSnapshot(snapshot)));
-    //.map((records)=>fetchPost(records));
-    /*await for (var records in recordsStream) {
+    //    data.documents.map((snapshot) => book.fromSnapshot(snapshot)));
+    //.map((books)=>fetchPost(books));
+    /*await for (var books in booksStream) {
       //sum += recor;
       var books;
-      books = await fetchPost(records);
+      books = await fetchPost(books);
       yield books;
     }*/
   }
 
-  Stream<QuerySnapshot> _handleSnapshot(user) {
-    _handleBookList(user);
-    return Firestore.instance
-        .collection('posts')
-        .where("author",
-            isEqualTo:
-                Firestore.instance.collection("users").document(user.data.uid))
-        .snapshots(); //.data.documents
-  }
+  // Stream<List<Book>> _handleSnapshot(user) {
+  //   //_handleBookList(user);
+  //   return Firestore.instance
+  //       .collection('posts')
+  //       .where("author",
+  //           isEqualTo:
+  //               Firestore.instance.collection("users").document(user.data.uid))
+  //       .snapshots(); //.data.documents
+  // }
 
   Widget _handleScreen() {
     //https://flutterdoc.com/mobileauthenticating-users-with-firebase-and-flutter-240c5557ac7f
@@ -103,16 +116,14 @@ class _MyAppState extends State<MyApp> {
         future: _handleSignIn(),
         builder: (BuildContext context, user) {
           if (user.hasData) {
-            return StreamBuilder<QuerySnapshot>(
-              stream: _handleSnapshot(user),
+            return StreamBuilder<List<Book>>(
+              stream: _handleBookList(user),
               //stream: Firestore.instance.collection(name).snapshots(),
-              builder: (BuildContext context,
-                  AsyncSnapshot<QuerySnapshot> snapshot) {
-                if (snapshot.hasData) {
-                  return new MyHomePage(
-                      firestore: snapshot.data.documents
-                          .map((data) => Record.fromSnapshot(data))
-                          .toList());
+              builder: (BuildContext context, AsyncSnapshot<List<Book>> books) {
+                print(books);
+                print(books.data);
+                if (books.hasData) {
+                  return new MyHomePage(firestore: books.data);
                 } else {
                   return new MyHomePage(firestore: []);
                 }
@@ -133,11 +144,11 @@ class MyHomePage extends StatelessWidget {
     Key key,
     this.firestore,
   }) : super(key: key);
-  final List<Record> firestore;
+  final List<Book> firestore;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Baby isbn isbn')),
+      appBar: AppBar(title: Text('Baby title title')),
       body: _buildBody(context),
     );
   }
@@ -147,21 +158,22 @@ class MyHomePage extends StatelessWidget {
     return _buildList(context, firestore);
   }
 
-  Widget _buildList(BuildContext context, List<Record> snapshot) {
+  Widget _buildList(BuildContext context, List<Book> snapshot) {
+    print(snapshot);
     return ListView(
       padding: const EdgeInsets.only(top: 20.0),
       children: snapshot
-          //.map((data) => Record.fromSnapshot(data))
-          .map((record) => _buildListItem(context, record))
+          //.map((data) => book.fromSnapshot(data))
+          .map((book) => _buildListItem(context, book))
           .toList(),
     );
   }
 
-  Widget _buildListItem(BuildContext context, Record record) {
-    //final record = Record.fromSnapshot(data);
+  Widget _buildListItem(BuildContext context, Book book) {
+    //final book = book.fromSnapshot(data);
     //fetchPost();
     return Padding(
-        key: ValueKey(record.isbn),
+        key: ValueKey(book.title),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Container(
           decoration: BoxDecoration(
@@ -169,16 +181,16 @@ class MyHomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(5.0),
           ),
           child: ListTile(
-              title: Text(record.isbn),
-              //trailing: Text(record.votes.toString()),
+              title: Text(book.title),
+              //trailing: Text(book.votes.toString()),
               onTap: () =>
                   Firestore.instance.runTransaction((transaction) async {
-                    final freshSnapshot =
-                        await transaction.get(record.reference);
-                    final fresh = Record.fromSnapshot(freshSnapshot);
+                    //final freshSnapshot =
+                    //    await transaction.get(book.reference);
+                    //final fresh = book.fromSnapshot(freshSnapshot);
 
                     //await transaction
-                    //    .update(record.reference, {'votes': fresh.votes + 1});
+                    //    .update(book.reference, {'votes': fresh.votes + 1});
                   })),
         ));
   }
@@ -189,14 +201,11 @@ class Book {
 
   Book({this.title});
 
-  factory Book.fromJson(Map<String, dynamic> json) {
-    return Book(
-      title: json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
-          ["TitleText"]["content"],
-      //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
-      //books.map((book) => Book.fromJson(book));
-    );
-  }
+  Book.fromJson(Map<String, dynamic> json)
+      : title = json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
+            ["TitleText"]["content"];
+  //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
+  //books.map((book) => Book.fromJson(book))
   @override
   String toString() => "Book<$title:>";
 }
@@ -213,5 +222,5 @@ class Record {
       : this.fromMap(snapshot.data, reference: snapshot.reference);
 
   @override
-  String toString() => "Record<$isbn:>";
+  String toString() => "book<$isbn:>";
 }
