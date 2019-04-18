@@ -55,17 +55,11 @@ class _MyAppState extends State<MyApp> {
     //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
-      // List<Book> books = json
-      //     .decode(response.body)
-      //     .map((book) => Book.fromJson(book) as Book)
-      //     .toList();
-      //var books =  as List;
       //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var books = json.decode(response.body) as List;
-      print("fetched");
-      print(books);
+      //print("fetched");
+      //print(books);
       return books.map((book) => Book.fromJson(book, status: "a")).toList();
-      //return books;
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
@@ -84,19 +78,10 @@ class _MyAppState extends State<MyApp> {
     //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
-      // List<Book> books = json
-      //     .decode(response.body)
-      //     .map((book) => Book.fromJson(book) as Book)
-      //     .toList();
-      //var books =  as List;
       //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var body = json.decode(response.body);
       print(body["books"]);
       print("fetched");
-      //print(books);
-      //print(books.map((book) => new Book.fromJson(book)).toList());
-      //return books.map((book) => Book.fromJson(book)).toList();
-      //return books;
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
@@ -129,26 +114,7 @@ class _MyAppState extends State<MyApp> {
         recordStream.asyncExpand((records) => fetchPost(records).asStream());
     //.listen((data) => print(data));
     return bookStream;
-    //.map((data) =>
-    //    data.documents.map((snapshot) => book.fromSnapshot(snapshot)));
-    //.map((books)=>fetchPost(books));
-    /*await for (var books in booksStream) {
-      //sum += recor;
-      var books;
-      books = await fetchPost(books);
-      yield books;
-    }*/
   }
-
-  // Stream<List<Book>> _handleSnapshot(user) {
-  //   //_handleBookList(user);
-  //   return Firestore.instance
-  //       .collection('posts')
-  //       .where("author",
-  //           isEqualTo:
-  //               Firestore.instance.collection("users").document(user.data.uid))
-  //       .snapshots(); //.data.documents
-  // }
 
   Widget _handleScreen() {
     //https://flutterdoc.com/mobileauthenticating-users-with-firebase-and-flutter-240c5557ac7f
@@ -210,8 +176,6 @@ class MyHomePage extends StatelessWidget {
   }
 
   Widget _buildListItem(BuildContext context, Book book) {
-    //final book = book.fromSnapshot(data);
-    //fetchPost();
     return Padding(
         key: ValueKey(book.title),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -223,7 +187,6 @@ class MyHomePage extends StatelessWidget {
           child: ListTile(
               title: Text(book.title),
               trailing: Text(book.status),
-              //trailing: Text(book.votes.toString()),
               onTap: () =>
                   Firestore.instance.runTransaction((transaction) async {
                     //final freshSnapshot =
