@@ -60,11 +60,42 @@ class _MyAppState extends State<MyApp> {
       //     .map((book) => Book.fromJson(book) as Book)
       //     .toList();
       //var books =  as List;
+      //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var books = json.decode(response.body) as List;
       print("fetched");
       print(books);
+      return books.map((book) => Book.fromJson(book, status: "a")).toList();
+      //return books;
+    } else {
+      // If that response was not OK, throw an error.
+      throw Exception('Failed to load post');
+    }
+  }
+
+  Future<List<Book>> fetchLibraryStatus(Iterable<Record> records) async {
+    print("fetchPost");
+    print(records);
+    final isbns = records.map((record) => record.isbn).join(",");
+    const LIBRARY_ID = 'Tokyo_Fuchu';
+    var url =
+        'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}';
+    print(url);
+    final response = await http.get(url);
+    //TODO:handle no result
+    if (response.statusCode == 200) {
+      // If server returns an OK response, parse the JSON
+      // List<Book> books = json
+      //     .decode(response.body)
+      //     .map((book) => Book.fromJson(book) as Book)
+      //     .toList();
+      //var books =  as List;
+      //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
+      var body = json.decode(response.body);
+      print(body["books"]);
+      print("fetched");
+      //print(books);
       //print(books.map((book) => new Book.fromJson(book)).toList());
-      return books.map((book) => Book.fromJson(book)).toList();
+      //return books.map((book) => Book.fromJson(book)).toList();
       //return books;
     } else {
       // If that response was not OK, throw an error.
@@ -74,7 +105,7 @@ class _MyAppState extends State<MyApp> {
 
   Stream<List<Book>> _handleBookList(user) {
     print("handlebooklist");
-    var booksStream = Firestore.instance
+    var recordStream = Firestore.instance
         .collection('posts')
         .where("author",
             isEqualTo:
@@ -90,10 +121,14 @@ class _MyAppState extends State<MyApp> {
         .map((snapshot) {
           print(snapshot);
           return snapshot;
-        })
-        .asyncExpand((books) => fetchPost(books).asStream());
+        });
+    var libStatusStream = recordStream
+        .asyncExpand((records) => fetchLibraryStatus(records).asStream())
+        .listen((data) => print(data));
+    var bookStream =
+        recordStream.asyncExpand((records) => fetchPost(records).asStream());
     //.listen((data) => print(data));
-    return booksStream;
+    return bookStream;
     //.map((data) =>
     //    data.documents.map((snapshot) => book.fromSnapshot(snapshot)));
     //.map((books)=>fetchPost(books));
@@ -187,6 +222,7 @@ class MyHomePage extends StatelessWidget {
           ),
           child: ListTile(
               title: Text(book.title),
+              trailing: Text(book.status),
               //trailing: Text(book.votes.toString()),
               onTap: () =>
                   Firestore.instance.runTransaction((transaction) async {
@@ -203,13 +239,14 @@ class MyHomePage extends StatelessWidget {
 
 class Book {
   final String title;
+  final String status;
 
-  Book({this.title});
+  //Book(this.status, {this.title});
 
-  Book.fromJson(Map<String, dynamic> json)
+  Book.fromJson(Map<String, dynamic> json, {this.status})
       : title = json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
             ["TitleText"]["content"];
-
+  //https://api.openbd.jp/v1/get?isbn=4772100318&pretty
   //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
   //books.map((book) => Book.fromJson(book))
   // factory Book.fromJson(Map<String, dynamic> json) {
