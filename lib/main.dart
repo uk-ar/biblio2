@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:async/async.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -48,7 +49,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<List<Book>> fetchPost(Iterable<Record> records) async {
     print("fetchPost");
-    print(records);
+    //print(records);
     final isbns = records.map((record) => record.isbn).join(",");
     print('https://api.openbd.jp/v1/get?title=$isbns');
     final response = await http.get('https://api.openbd.jp/v1/get?isbn=$isbns');
@@ -68,7 +69,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<List<Book>> fetchLibraryStatus(Iterable<Record> records) async {
     print("fetchPost");
-    print(records);
+    //print(records);
     final isbns = records.map((record) => record.isbn).join(",");
     const LIBRARY_ID = 'Tokyo_Fuchu';
     var url =
@@ -80,7 +81,17 @@ class _MyAppState extends State<MyApp> {
       // If server returns an OK response, parse the JSON
       //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var body = json.decode(response.body);
-      print(body["books"]);
+      print(body);
+      //TODO:retry
+      Map bookStatuses;
+      body["books"].forEach((isbn, value) {
+        print(isbn);
+        print(value[LIBRARY_ID]);
+
+        //var libkey = value[LIBRARY_ID]["libkey"];
+        //if (libkey.containsValue("貸出可")) {}
+        //bookStatuses[isbn] = {};
+      });
       print("fetched");
     } else {
       // If that response was not OK, throw an error.
@@ -99,19 +110,26 @@ class _MyAppState extends State<MyApp> {
         .map((data) => data.documents) //books
         .map((snapshot) {
           print("foo");
-          print(snapshot);
+          //print(snapshot);
           return snapshot;
         })
         .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
         .map((snapshot) {
-          print(snapshot);
+          //print(snapshot);
           return snapshot;
-        });
+        })
+        .distinct();
     var libStatusStream = recordStream
-        .asyncExpand((records) => fetchLibraryStatus(records).asStream())
-        .listen((data) => print(data));
+        .asyncExpand((records) => fetchLibraryStatus(records).asStream());
+    //.listen((data) => print(data));
     var bookStream =
         recordStream.asyncExpand((records) => fetchPost(records).asStream());
+    var bothStreams =
+        StreamZip([bookStream, libStatusStream]).listen((streams) {
+      print("zip");
+      print(streams[0]);
+      print(streams[1]);
+    });
     //.listen((data) => print(data));
     return bookStream;
   }
