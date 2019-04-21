@@ -11,30 +11,138 @@ import 'package:rxdart/rxdart.dart';
 
 void main() => runApp(MyApp());
 
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class CounterBloc implements Bloc {
+class BooksBloc implements Bloc {
   //final _countController = BehaviorSubject<int>(seedValue: 0);
-  final _countController = BehaviorSubject<int>.seeded(0);
-  final _incrementController = PublishSubject<void>();
+  final _recordRequestController = PublishSubject<String>(); //Sink
+  final _recordController = BehaviorSubject<List<Record>>.seeded([]); //Stream
+  final _detailRequestController = PublishSubject<List<String>>(); //Sink
+  final _detailController = BehaviorSubject<List<Book>>.seeded([]); //Stream
+  final _statusRequestController = PublishSubject<String>(); //Sink
+  final _statusController = BehaviorSubject<Map>.seeded({}); //Stream
+  final _booksController = BehaviorSubject<List<Book>>.seeded([]); //Stream
 
-  CounterBloc() {
-    _incrementController
-        .scan<int>((sum, _v, _i) => sum + 1, 0)
-        .pipe(_countController);
+  //Sink<void> get booksRequest => _detailRequestController.sink;
+  //ValueObservable<List<Book>> get books => _detailController;
+  //Sink<void> get statusRequest => _statusRequestController.sink;
+  //ValueObservable<Map> get status => _statusController;
+  Sink<void> get recordRequest => _recordRequestController.sink;
+  ValueObservable<List<Book>> get books => _booksController;
+
+  Future<List<Book>> fetchBooks(List<String> isbns) async {
+    if (isbns.isEmpty) {
+      return [];
+    }
+    final response =
+        await http.get('https://api.openbd.jp/v1/get?isbn=${isbns.join(",")}');
+    //TODO:handle no result
+    if (response.statusCode == 200) {
+      // If server returns an OK response, parse the JSON
+      //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
+      var books = json.decode(response.body) as List;
+      return books.map((book) => Book.fromJson(book, status: "a")).toList();
+    } else {
+      // If that response was not OK, throw an error.
+      throw Exception('Failed to load post');
+    }
   }
 
-  ValueObservable<int> get count => _countController;
-  Sink<void> get increment => _incrementController.sink;
+  Future<Map> fetchLibraryStatus(String url) async {
+    if (url.isEmpty) {
+      return {};
+    }
+    const LIBRARY_ID = 'Tokyo_Fuchu';
+    //var url =
+    //    'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}';
+    final response = await http.get(url);
+    //TODO:handle no result
+    if (response.statusCode == 200) {
+      // If server returns an OK response, parse the JSON
+      //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
+      var body = json.decode(response.body);
+      print(body);
+      if (body["continue"] == 1) {
+        print("retry:" + body);
+        _statusRequestController.add(
+            "http://api.calil.jp/check?session=${body["session"]}&format=json");
+      }
+      Map bookStatus;
+      body["books"].forEach((isbn, value) {
+        print(isbn);
+        print(value[LIBRARY_ID]);
+        //var {status,reserveurl,libkey}=value[LIBRARY_ID];
+        if (value[LIBRARY_ID]["status"] == "running") {
+          bookStatus[isbn] = "Running";
+        } else if (value[LIBRARY_ID]["libkey"].isEmpty()) {
+          bookStatus[isbn] = "No Collection";
+        } else if (value[LIBRARY_ID]["libkey"].containsValue("貸出可")) {
+          bookStatus[isbn] = "Rentable";
+        } else {
+          bookStatus[isbn] = "On Loan";
+        }
+        return bookStatus;
+      });
+    } else {
+      // If that response was not OK, throw an error.
+      throw Exception('Failed to load post');
+    }
+  }
+
+  BooksBloc() {
+    const LIBRARY_ID = 'Tokyo_Fuchu';
+    _recordRequestController
+        .asyncExpand((uid) {
+          return Firestore.instance
+              .collection('posts')
+              .where("author",
+                  isEqualTo:
+                      Firestore.instance.collection("users").document(uid))
+              .snapshots();
+        })
+        .map((data) => data.documents) //books
+        .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
+        .distinct()
+        .pipe(_recordController);
+    _recordController
+        .map((records) => records.map((record) => record.isbn))
+        .pipe(_detailRequestController);
+    _recordController
+        .map((records) => records.map((record) => record.isbn))
+        .map((isbns) =>
+            'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&isbn=${isbns}')
+        .pipe(_statusRequestController);
+    _detailRequestController
+        .asyncExpand((isbns) => fetchBooks(isbns).asStream())
+        .pipe(_detailController);
+    _statusRequestController
+        //.interval(new Duration(seconds: 2))
+        .delay(new Duration(seconds: 2))
+        .asyncExpand((url) => fetchLibraryStatus(url).asStream())
+        //.marge()//initial request & switchmap
+        .pipe(_statusController);
+    CombineLatestStream.combine2(
+            _detailController,
+            _statusController,
+            (books, status) =>
+                books.forEach((book) => book.status = status[book.isbn]))
+        .pipe(_booksController);
+    //bloc.booksRequest.add(["4834000826","4772100318","9784834005158"])
+  }
 
   @override
   void dispose() async {
-    await _incrementController.close();
-    await _countController.close();
+    await _booksController.close();
+    await _detailRequestController.close();
+    await _detailController.close();
+    await _statusRequestController.close();
+    await _statusController.close();
+    await _recordRequestController.close();
+    await _recordController.close();
   }
+}
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
@@ -122,13 +230,12 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Stream<List<Book>> _handleBookList(user) {
+  Stream<List<Book>> _handleBookList(String uid) {
     print("handlebooklist");
     var recordStream = Firestore.instance
         .collection('posts')
         .where("author",
-            isEqualTo:
-                Firestore.instance.collection("users").document(user.data.uid))
+            isEqualTo: Firestore.instance.collection("users").document(uid))
         .snapshots()
         .map((data) => data.documents) //books
         .map((snapshot) {
@@ -164,7 +271,7 @@ class _MyAppState extends State<MyApp> {
         builder: (BuildContext context, user) {
           if (user.hasData) {
             return StreamBuilder<List<Book>>(
-              stream: _handleBookList(user),
+              stream: _handleBookList(user.data.uid),
               //stream: Firestore.instance.collection(name).snapshots(),
               builder: (BuildContext context, AsyncSnapshot<List<Book>> books) {
                 print(books);
