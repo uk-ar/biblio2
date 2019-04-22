@@ -350,13 +350,16 @@ class MyHomePage extends StatelessWidget {
 
 class Book {
   final String title;
-  final String status;
+  final String isbn;
+  String status;
 
   //Book(this.status, {this.title});
 
   Book.fromJson(Map<String, dynamic> json, {this.status})
       : title = json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
-            ["TitleText"]["content"];
+            ["TitleText"]["content"],
+        isbn = json["summary"]["isbn"];
+
   //https://api.openbd.jp/v1/get?isbn=4772100318&pretty
   //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
   //books.map((book) => Book.fromJson(book))
