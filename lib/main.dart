@@ -9,24 +9,18 @@ import 'package:http/http.dart' as http;
 import 'package:bloc_provider/bloc_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
-void main() => runApp(MyApp());
-
 class BooksBloc implements Bloc {
   //final _countController = BehaviorSubject<int>(seedValue: 0);
   final _recordRequestController = PublishSubject<String>(); //Sink
-  final _recordController = BehaviorSubject<List<Record>>.seeded([]); //Stream
+  final _recordController = BehaviorSubject<List<String>>(); //Stream
   final _detailRequestController = PublishSubject<List<String>>(); //Sink
-  final _detailController = BehaviorSubject<List<Book>>.seeded([]); //Stream
-  final _statusRequestController = PublishSubject<String>(); //Sink
-  final _statusController = BehaviorSubject<Map>.seeded({}); //Stream
-  final _booksController = BehaviorSubject<List<Book>>.seeded([]); //Stream
+  final _detailController = BehaviorSubject<List<Book>>(); //Stream
+  final _statusRequestController = ReplaySubject<List<String>>(); //Sink
+  final _statusController = BehaviorSubject<Map>(); //Stream
+  final _booksController = BehaviorSubject<List<Book>>(); //Stream
 
-  //Sink<void> get booksRequest => _detailRequestController.sink;
-  //ValueObservable<List<Book>> get books => _detailController;
-  //Sink<void> get statusRequest => _statusRequestController.sink;
-  //ValueObservable<Map> get status => _statusController;
   Sink<void> get recordRequest => _recordRequestController.sink;
-  ValueObservable<List<Book>> get books => _booksController;
+  Observable<List<Book>> get books => _booksController.startWith([]);
 
   Future<List<Book>> fetchBooks(List<String> isbns) async {
     if (isbns.isEmpty) {
@@ -39,7 +33,15 @@ class BooksBloc implements Bloc {
       // If server returns an OK response, parse the JSON
       //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var books = json.decode(response.body) as List;
-      return books.map((book) => Book.fromJson(book, status: "a")).toList();
+      List<Book> ret = [];
+      for (var i = 0; i < isbns.length; i++) {
+        ret.add(Book.fromJson(books[i], isbn: isbns[i]));
+      }
+      return ret;
+      // return isbns
+      //     .asMap()
+      //     .map((i, isbn) => Book.fromJson(books[i], isbn: isbn));
+      //return books.map((book,i) => Book.fromJson(book, status: "a")).toList();
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
@@ -50,41 +52,48 @@ class BooksBloc implements Bloc {
     if (url.isEmpty) {
       return {};
     }
-    const LIBRARY_ID = 'Tokyo_Fuchu';
+    print(url);
+
     //var url =
-    //    'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}';
+    //    'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}&callback=no';
     final response = await http.get(url);
     //TODO:handle no result
     if (response.statusCode == 200) {
       // If server returns an OK response, parse the JSON
       //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var body = json.decode(response.body);
-      print(body);
-      if (body["continue"] == 1) {
-        print("retry:" + body);
-        _statusRequestController.add(
-            "http://api.calil.jp/check?session=${body["session"]}&format=json");
-      }
-      Map bookStatus;
-      body["books"].forEach((isbn, value) {
-        print(isbn);
-        print(value[LIBRARY_ID]);
-        //var {status,reserveurl,libkey}=value[LIBRARY_ID];
-        if (value[LIBRARY_ID]["status"] == "running") {
-          bookStatus[isbn] = "Running";
-        } else if (value[LIBRARY_ID]["libkey"].isEmpty()) {
-          bookStatus[isbn] = "No Collection";
-        } else if (value[LIBRARY_ID]["libkey"].containsValue("貸出可")) {
-          bookStatus[isbn] = "Rentable";
-        } else {
-          bookStatus[isbn] = "On Loan";
-        }
-        return bookStatus;
-      });
+      //print(body);
+      return body;
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
     }
+  }
+
+  Map bodyToStatus(Map body) {
+    const LIBRARY_ID = 'Tokyo_Fuchu';
+    Map bookStatus = {};
+    //print("body:$body");
+    if (body == null || body.isEmpty) {
+      return {};
+    }
+    body["books"].forEach((isbn, value) {
+      //print(isbn);
+      //print(value[LIBRARY_ID]);
+      //var {status,reserveurl,libkey}=value[LIBRARY_ID];
+      if (value[LIBRARY_ID]["status"] == "Running") {
+        bookStatus[isbn] = "Running";
+      } else if (value[LIBRARY_ID]["libkey"] == null) {
+        bookStatus[isbn] = "No Collection";
+      } else if (value[LIBRARY_ID]["libkey"].containsValue("貸出可")) {
+        bookStatus[isbn] = "Rentable";
+      } else {
+        bookStatus[isbn] = "On Loan";
+      }
+    });
+    //print("bookstatus:$bookStatus");
+    return bookStatus;
+    //return bookStatus;
   }
 
   BooksBloc() {
@@ -99,33 +108,80 @@ class BooksBloc implements Bloc {
               .snapshots();
         })
         .map((data) => data.documents) //books
-        .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
+        .map((snapshot) =>
+            snapshot.map((data) => Record.fromSnapshot(data)).toList())
         .distinct()
+        .doOnData((data) => print("record request:$data"))
+        .map((records) =>
+            records.map((record) => record.isbn).toList()..add("4569787789"))
         .pipe(_recordController);
     _recordController
-        .map((records) => records.map((record) => record.isbn))
+        .doOnData((data) => print("record cont:$data"))
         .pipe(_detailRequestController);
-    _recordController
-        .map((records) => records.map((record) => record.isbn))
-        .map((isbns) =>
-            'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&isbn=${isbns}')
-        .pipe(_statusRequestController);
     _detailRequestController
         .asyncExpand((isbns) => fetchBooks(isbns).asStream())
+        .doOnData((data) => print("detail:$data"))
         .pipe(_detailController);
-    _statusRequestController
-        //.interval(new Duration(seconds: 2))
-        .delay(new Duration(seconds: 2))
-        .asyncExpand((url) => fetchLibraryStatus(url).asStream())
-        //.marge()//initial request & switchmap
+    var session = "";
+    _recordController
+        .doOnData((_) => session = "")
+        .doOnData((data) => print("R:$data"))
+        .pipe(_statusRequestController);
+    new RetryWhenStream<Map>(
+      () => _statusRequestController
+          .doOnData((data) => print("status req0:$data"))
+          .map((isbns) {
+            if (isbns.isEmpty) {
+              return "";
+            } else if (session.isEmpty) {
+              return 'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&format=json&systemid=${LIBRARY_ID}&isbn=${isbns.join(",")}';
+            } else {
+              return "http://api.calil.jp/check?callback=no&session=${session}&format=json";
+            }
+          })
+          .doOnData((data) => print("status req:$data"))
+          //.interval(new Duration(seconds: 2))
+          //.delay(new Duration(seconds: 2))
+          .asyncExpand((url) => fetchLibraryStatus(url).asStream())
+          .doOnData((data) => print("status req2:$data"))
+          .expand((Map body) => body["continue"] == 1
+              ? [
+                  Map.from(body)..addAll(<String, dynamic>{"continue": 0}),
+                  body
+                ]
+              : [body])
+          .doOnData((data) => print("status response:$data"))
+          .map((body) => body["continue"] == 1 ? throw body["session"] : body)
+          .doOnData((data) => print("status response2:$data"))
+          .map(bodyToStatus),
+      (e, s) {
+        //errorHappened = true;
+        print("error:$e");
+        session = e;
+        return new Observable<String>.timer(
+                "random", const Duration(seconds: 2))
+            .doOnData((data) => print("duration:$data"));
+      },
+    )
+        // .listen((data) => print("Retry:$data"),
+        //     onError: (data) => print("Error:$data"));
         .pipe(_statusController);
-    CombineLatestStream.combine2(
-            _detailController,
-            _statusController,
-            (books, status) =>
-                books.forEach((book) => book.status = status[book.isbn]))
-        .pipe(_booksController);
-    //bloc.booksRequest.add(["4834000826","4772100318","9784834005158"])
+    //_statusController.where((body) => body["continue"] == 1).map((body) =>
+    //    "http://api.calil.jp/check?session=${body["session"]}&format=json");
+    //.pipe(_statusRequestController);
+    CombineLatestStream.combine2<List<Book>, Map, List<Book>>(_detailController,
+        _statusController.doOnData((data) => print("status cont:$data")),
+        (List<Book> books, Map status) {
+      print("status controller,$books,$status");
+      if (status == null || status.isEmpty) {
+        return books;
+      }
+      return books
+        ..forEach((book) {
+          print("b:$book,${status[book.isbn]}");
+          book.status = status[book.isbn];
+        });
+    }).pipe(_booksController); //.listen((data) => print("combine:$data")); //
   }
 
   @override
@@ -140,15 +196,16 @@ class BooksBloc implements Bloc {
   }
 }
 
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
+void main() => runApp(
+      BlocProvider<BooksBloc>(
+        creator: (_context, _bag) => BooksBloc(),
+        child: MyApp(),
+      ),
+    );
 
-class _MyAppState extends State<MyApp> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
+class MyApp extends StatelessWidget {
   Future<FirebaseUser> _handleSignIn() async {
+    final FirebaseAuth _auth = FirebaseAuth.instance;
     //https://android.jlelse.eu/authenticate-with-firebase-anonymously-android-34fdf3c7336b
     var user = await _auth.currentUser();
     if (user == null) {
@@ -166,7 +223,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Baby titles',
       //home: new LoginSignUpPage(auth: new Auth()),
-      home: _handleScreen(),
+      home: _handleScreen(context),
     );
   }
 
@@ -178,104 +235,22 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  Future<List<Book>> fetchPost(Iterable<Record> records) async {
-    print("fetchPost");
-    //print(records);
-    final isbns = records.map((record) => record.isbn).join(",");
-    print('https://api.openbd.jp/v1/get?title=$isbns');
-    final response = await http.get('https://api.openbd.jp/v1/get?isbn=$isbns');
-    //TODO:handle no result
-    if (response.statusCode == 200) {
-      // If server returns an OK response, parse the JSON
-      //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
-      var books = json.decode(response.body) as List;
-      //print("fetched");
-      //print(books);
-      return books.map((book) => Book.fromJson(book, status: "a")).toList();
-    } else {
-      // If that response was not OK, throw an error.
-      throw Exception('Failed to load post');
-    }
-  }
-
-  Future<List<Book>> fetchLibraryStatus(Iterable<Record> records) async {
-    print("fetchPost");
-    //print(records);
-    final isbns = records.map((record) => record.isbn).join(",");
-    const LIBRARY_ID = 'Tokyo_Fuchu';
-    var url =
-        'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}';
-    print(url);
-    final response = await http.get(url);
-    //TODO:handle no result
-    if (response.statusCode == 200) {
-      // If server returns an OK response, parse the JSON
-      //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
-      var body = json.decode(response.body);
-      print(body);
-      //TODO:retry
-      Map bookStatuses;
-      body["books"].forEach((isbn, value) {
-        print(isbn);
-        print(value[LIBRARY_ID]);
-
-        //var libkey = value[LIBRARY_ID]["libkey"];
-        //if (libkey.containsValue("貸出可")) {}
-        //bookStatuses[isbn] = {};
-      });
-      print("fetched");
-    } else {
-      // If that response was not OK, throw an error.
-      throw Exception('Failed to load post');
-    }
-  }
-
-  Stream<List<Book>> _handleBookList(String uid) {
-    print("handlebooklist");
-    var recordStream = Firestore.instance
-        .collection('posts')
-        .where("author",
-            isEqualTo: Firestore.instance.collection("users").document(uid))
-        .snapshots()
-        .map((data) => data.documents) //books
-        .map((snapshot) {
-          print("foo");
-          //print(snapshot);
-          return snapshot;
-        })
-        .map((snapshot) => snapshot.map((data) => Record.fromSnapshot(data)))
-        .map((snapshot) {
-          //print(snapshot);
-          return snapshot;
-        })
-        .distinct();
-    var libStatusStream = recordStream
-        .asyncExpand((records) => fetchLibraryStatus(records).asStream());
-    //.listen((data) => print(data));
-    var bookStream =
-        recordStream.asyncExpand((records) => fetchPost(records).asStream());
-    var bothStreams =
-        StreamZip([bookStream, libStatusStream]).listen((streams) {
-      print("zip");
-      print(streams[0]);
-      print(streams[1]);
-    });
-    //.listen((data) => print(data));
-    return bookStream;
-  }
-
-  Widget _handleScreen() {
+  Widget _handleScreen(BuildContext context) {
+    final bloc = BlocProvider.of<BooksBloc>(context);
     //https://flutterdoc.com/mobileauthenticating-users-with-firebase-and-flutter-240c5557ac7f
     return new FutureBuilder<FirebaseUser>(
         future: _handleSignIn(),
         builder: (BuildContext context, user) {
           if (user.hasData) {
+            bloc.recordRequest.add(user.data.uid);
             return StreamBuilder<List<Book>>(
-              stream: _handleBookList(user.data.uid),
+              stream: bloc.books,
+              //initialData: bloc.books.value,
+              //stream: _handleBookList(user.data.uid),
               //stream: Firestore.instance.collection(name).snapshots(),
               builder: (BuildContext context, AsyncSnapshot<List<Book>> books) {
                 print(books);
-                print(books.data);
+                print("futurebuilder:$books.data");
                 if (books.hasData) {
                   return new MyHomePage(firestore: books.data);
                 } else {
@@ -301,6 +276,7 @@ class MyHomePage extends StatelessWidget {
   final List<Book> firestore;
   @override
   Widget build(BuildContext context) {
+    print("build:$firestore");
     return Scaffold(
       appBar: AppBar(title: Text('Baby title title')),
       body: _buildBody(context),
@@ -313,7 +289,7 @@ class MyHomePage extends StatelessWidget {
   }
 
   Widget _buildList(BuildContext context, List<Book> snapshot) {
-    print(snapshot);
+    print("buildList:$snapshot");
     return ListView(
       padding: const EdgeInsets.only(top: 20.0),
       children: snapshot
@@ -324,6 +300,7 @@ class MyHomePage extends StatelessWidget {
   }
 
   Widget _buildListItem(BuildContext context, Book book) {
+    print("book:$book,${book.status}");
     return Padding(
         key: ValueKey(book.title),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -351,14 +328,14 @@ class MyHomePage extends StatelessWidget {
 class Book {
   final String title;
   final String isbn;
-  String status;
+  String status = "initial";
 
   //Book(this.status, {this.title});
 
-  Book.fromJson(Map<String, dynamic> json, {this.status})
+  Book.fromJson(Map<String, dynamic> json, {this.status, this.isbn})
       : title = json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
-            ["TitleText"]["content"],
-        isbn = json["summary"]["isbn"];
+            ["TitleText"]["content"];
+  //isbn = json["summary"]["isbn"];
 
   //https://api.openbd.jp/v1/get?isbn=4772100318&pretty
   //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
@@ -369,7 +346,7 @@ class Book {
   //           ["TitleText"]["content"]);
   // }
   @override
-  String toString() => "Book<$title:>";
+  String toString() => "Book<$title:$isbn:$status>";
 }
 
 class Record {
