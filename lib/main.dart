@@ -38,10 +38,6 @@ class BooksBloc implements Bloc {
         ret.add(Book.fromJson(books[i], isbn: isbns[i]));
       }
       return ret;
-      // return isbns
-      //     .asMap()
-      //     .map((i, isbn) => Book.fromJson(books[i], isbn: isbn));
-      //return books.map((book,i) => Book.fromJson(book, status: "a")).toList();
     } else {
       // If that response was not OK, throw an error.
       throw Exception('Failed to load post');
@@ -52,8 +48,6 @@ class BooksBloc implements Bloc {
     if (url.isEmpty) {
       return {};
     }
-    print(url);
-
     //var url =
     //    'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}&callback=no';
     final response = await http.get(url);
@@ -62,7 +56,6 @@ class BooksBloc implements Bloc {
       // If server returns an OK response, parse the JSON
       //https://medium.com/flutter-community/parsing-complex-json-in-flutter-747c46655f51
       var body = json.decode(response.body);
-      //print(body);
       return body;
     } else {
       // If that response was not OK, throw an error.
@@ -73,14 +66,10 @@ class BooksBloc implements Bloc {
   Map bodyToStatus(Map body) {
     const LIBRARY_ID = 'Tokyo_Fuchu';
     Map bookStatus = {};
-    //print("body:$body");
     if (body == null || body.isEmpty) {
       return {};
     }
     body["books"].forEach((isbn, value) {
-      //print(isbn);
-      //print(value[LIBRARY_ID]);
-      //var {status,reserveurl,libkey}=value[LIBRARY_ID];
       if (value[LIBRARY_ID]["status"] == "Running") {
         bookStatus[isbn] = "Running";
       } else if (value[LIBRARY_ID]["libkey"] == null) {
@@ -91,9 +80,7 @@ class BooksBloc implements Bloc {
         bookStatus[isbn] = "On Loan";
       }
     });
-    //print("bookstatus:$bookStatus");
     return bookStatus;
-    //return bookStatus;
   }
 
   BooksBloc() {
@@ -111,25 +98,23 @@ class BooksBloc implements Bloc {
         .map((snapshot) =>
             snapshot.map((data) => Record.fromSnapshot(data)).toList())
         .distinct()
-        .doOnData((data) => print("record request:$data"))
+        //.doOnData((data) => print("record request:$data"))
         .map((records) =>
             records.map((record) => record.isbn).toList()..add("4569787789"))
         .pipe(_recordController);
     _recordController
-        .doOnData((data) => print("record cont:$data"))
+        //.doOnData((data) => print("record cont:$data"))
         .pipe(_detailRequestController);
     _detailRequestController
         .asyncExpand((isbns) => fetchBooks(isbns).asStream())
-        .doOnData((data) => print("detail:$data"))
+        //.doOnData((data) => print("detail:$data"))
         .pipe(_detailController);
     var session = "";
     _recordController
         .doOnData((_) => session = "")
-        .doOnData((data) => print("R:$data"))
         .pipe(_statusRequestController);
     new RetryWhenStream<Map>(
       () => _statusRequestController
-          .doOnData((data) => print("status req0:$data"))
           .map((isbns) {
             if (isbns.isEmpty) {
               return "";
@@ -139,9 +124,7 @@ class BooksBloc implements Bloc {
               return "http://api.calil.jp/check?callback=no&session=${session}&format=json";
             }
           })
-          .doOnData((data) => print("status req:$data"))
-          //.interval(new Duration(seconds: 2))
-          //.delay(new Duration(seconds: 2))
+          //.doOnData((data) => print("status req:$data"))
           .asyncExpand((url) => fetchLibraryStatus(url).asStream())
           .doOnData((data) => print("status req2:$data"))
           .expand((Map body) => body["continue"] == 1
@@ -150,9 +133,9 @@ class BooksBloc implements Bloc {
                   body
                 ]
               : [body])
-          .doOnData((data) => print("status response:$data"))
+          //.doOnData((data) => print("status response:$data"))
           .map((body) => body["continue"] == 1 ? throw body["session"] : body)
-          .doOnData((data) => print("status response2:$data"))
+          //.doOnData((data) => print("status response2:$data"))
           .map(bodyToStatus),
       (e, s) {
         //errorHappened = true;
@@ -166,9 +149,6 @@ class BooksBloc implements Bloc {
         // .listen((data) => print("Retry:$data"),
         //     onError: (data) => print("Error:$data"));
         .pipe(_statusController);
-    //_statusController.where((body) => body["continue"] == 1).map((body) =>
-    //    "http://api.calil.jp/check?session=${body["session"]}&format=json");
-    //.pipe(_statusRequestController);
     CombineLatestStream.combine2<List<Book>, Map, List<Book>>(_detailController,
         _statusController.doOnData((data) => print("status cont:$data")),
         (List<Book> books, Map status) {
@@ -246,8 +226,6 @@ class MyApp extends StatelessWidget {
             return StreamBuilder<List<Book>>(
               stream: bloc.books,
               //initialData: bloc.books.value,
-              //stream: _handleBookList(user.data.uid),
-              //stream: Firestore.instance.collection(name).snapshots(),
               builder: (BuildContext context, AsyncSnapshot<List<Book>> books) {
                 print(books);
                 print("futurebuilder:$books.data");
@@ -256,14 +234,10 @@ class MyApp extends StatelessWidget {
                 } else {
                   return new MyHomePage(firestore: []);
                 }
-                //return new ListView(children: createChildren(snapshot));
               },
             );
-            //return new MyHomePage(firestore: firestore);
           }
           return SplashScreen();
-          //LinearProgressIndicator
-          //return new LoginScreen();
         });
   }
 }
@@ -292,10 +266,7 @@ class MyHomePage extends StatelessWidget {
     print("buildList:$snapshot");
     return ListView(
       padding: const EdgeInsets.only(top: 20.0),
-      children: snapshot
-          //.map((data) => book.fromSnapshot(data))
-          .map((book) => _buildListItem(context, book))
-          .toList(),
+      children: snapshot.map((book) => _buildListItem(context, book)).toList(),
     );
   }
 
@@ -338,13 +309,7 @@ class Book {
   //isbn = json["summary"]["isbn"];
 
   //https://api.openbd.jp/v1/get?isbn=4772100318&pretty
-  //author: json["onix"]["DescriptiveDetail"]["Contributor"].map()
-  //books.map((book) => Book.fromJson(book))
-  // factory Book.fromJson(Map<String, dynamic> json) {
-  //   return Book(
-  //       title: json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
-  //           ["TitleText"]["content"]);
-  // }
+
   @override
   String toString() => "Book<$title:$isbn:$status>";
 }
