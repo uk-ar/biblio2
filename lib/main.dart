@@ -48,8 +48,7 @@ class BooksBloc implements Bloc {
     if (url.isEmpty) {
       return {};
     }
-    //var url =
-    //    'http://api.calil.jp/check?callback=no&appkey=bc3d19b6abbd0af9a59d97fe8b22660f&systemid=${LIBRARY_ID}&format=json&isbn=${isbns}&callback=no';
+    // https://calil.jp/doc/api_ref.html
     final response = await http.get(url);
     //TODO:handle no result
     if (response.statusCode == 200) {
@@ -69,15 +68,21 @@ class BooksBloc implements Bloc {
     if (body == null || body.isEmpty) {
       return {};
     }
-    body["books"].forEach((isbn, value) {
-      if (value[LIBRARY_ID]["status"] == "Running") {
-        bookStatus[isbn] = "Running";
-      } else if (value[LIBRARY_ID]["libkey"] == null) {
-        bookStatus[isbn] = "No Collection";
-      } else if (value[LIBRARY_ID]["libkey"].containsValue("貸出可")) {
-        bookStatus[isbn] = "Rentable";
+    body["books"].forEach((isbn, book) {
+      if (book[LIBRARY_ID]["status"] == "Running") {
+        bookStatus[isbn] = {"status": "Running"};
+      } else if (book[LIBRARY_ID]["libkey"] == null) {
+        bookStatus[isbn] = {"status": "No Collection"};
+      } else if (book[LIBRARY_ID]["libkey"].containsValue("貸出可")) {
+        bookStatus[isbn] = {
+          "status": "Rentable",
+          "reserveurl": book[LIBRARY_ID]["reserveurl"]
+        };
       } else {
-        bookStatus[isbn] = "On Loan";
+        bookStatus[isbn] = {
+          "status": "On Loan",
+          "reserveurl": book[LIBRARY_ID]["reserveurl"]
+        };
       }
     });
     return bookStatus;
@@ -149,9 +154,8 @@ class BooksBloc implements Bloc {
         // .listen((data) => print("Retry:$data"),
         //     onError: (data) => print("Error:$data"));
         .pipe(_statusController);
-    CombineLatestStream.combine2<List<Book>, Map, List<Book>>(_detailController,
-        _statusController.doOnData((data) => print("status cont:$data")),
-        (List<Book> books, Map status) {
+    CombineLatestStream.combine2<List<Book>, Map, List<Book>>(
+        _detailController, _statusController, (List<Book> books, Map status) {
       print("status controller,$books,$status");
       if (status == null || status.isEmpty) {
         return books;
@@ -230,9 +234,9 @@ class MyApp extends StatelessWidget {
                 print(books);
                 print("futurebuilder:$books.data");
                 if (books.hasData) {
-                  return new MyHomePage(firestore: books.data);
+                  return new MyHomePage(books: books.data);
                 } else {
-                  return new MyHomePage(firestore: []);
+                  return new MyHomePage(books: []);
                 }
               },
             );
@@ -245,21 +249,16 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatelessWidget {
   MyHomePage({
     Key key,
-    this.firestore,
+    this.books,
   }) : super(key: key);
-  final List<Book> firestore;
+  final List<Book> books;
   @override
   Widget build(BuildContext context) {
-    print("build:$firestore");
+    print("build:$books");
     return Scaffold(
       appBar: AppBar(title: Text('Baby title title')),
-      body: _buildBody(context),
+      body: _buildList(context, books),
     );
-  }
-
-  Widget _buildBody(BuildContext context) {
-    // TODO: get actual snapshot from Cloud Firestore
-    return _buildList(context, firestore);
   }
 
   Widget _buildList(BuildContext context, List<Book> snapshot) {
@@ -282,7 +281,7 @@ class MyHomePage extends StatelessWidget {
           ),
           child: ListTile(
               title: Text(book.title),
-              trailing: Text(book.status),
+              trailing: Text(book.status == null ? "" : book.status["status"]),
               onTap: () =>
                   Firestore.instance.runTransaction((transaction) async {
                     //final freshSnapshot =
@@ -299,13 +298,13 @@ class MyHomePage extends StatelessWidget {
 class Book {
   final String title;
   final String isbn;
-  String status = "initial";
-
-  //Book(this.status, {this.title});
+  final String cover;
+  Map status = {};
 
   Book.fromJson(Map<String, dynamic> json, {this.status, this.isbn})
       : title = json["onix"]["DescriptiveDetail"]["TitleDetail"]["TitleElement"]
-            ["TitleText"]["content"];
+            ["TitleText"]["content"],
+        cover = json["summary"]["cover"];
   //isbn = json["summary"]["isbn"];
 
   //https://api.openbd.jp/v1/get?isbn=4772100318&pretty
